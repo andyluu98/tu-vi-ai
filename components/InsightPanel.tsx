@@ -54,10 +54,15 @@ function buildTierContext(
     };
   }
   if (view === 'liunian') {
-    const sihua = sihuaOverlayToVn(buildSiHuaOverlay(getYearStemIndex(liunianYear)));
+    const yearSihua = sihuaOverlayToVn(buildSiHuaOverlay(getYearStemIndex(liunianYear)));
+    // Lưu niên nằm trong đại hạn: đưa cả tứ hóa đại hạn để luận đủ 3 tầng (sinh niên + đại hạn + lưu niên)
+    const dx = chart.daXians[chart.currentDaXianIndex];
+    const dxPalace = dx ? chart.palaces.find(p => p.branch === dx.palaceBranch) : undefined;
+    const dxSihua = dxPalace ? sihuaOverlayToVn(buildSiHuaOverlay(dxPalace.stem)) : '';
+    const dxLine = dx ? ` Đang trong đại hạn ${dx.startAge}-${dx.endAge} tuổi, tứ hóa đại hạn: ${dxSihua}.` : '';
     return {
       label: `Lưu niên ${liunianYear}`,
-      ctx: `\n\nBỐI CẢNH THỜI GIAN (QUAN TRỌNG): đang xét TRONG LƯU NIÊN năm ${liunianYear}, KHÔNG luận chung chung cả đời hay cả đại hạn. Tứ hóa lưu niên ${liunianYear}: ${sihua}. Hãy luận TRỌNG TÂM vào RIÊNG năm ${liunianYear}: cát hung trong năm, thời điểm trong năm, việc nên và không nên làm năm ${liunianYear}, kết hợp tứ hóa lưu niên. Nếu bố cục có mục về 'đại hạn hiện tại', hãy THAY bằng mục luận riêng cho năm ${liunianYear}.`,
+      ctx: `\n\nBỐI CẢNH THỜI GIAN (QUAN TRỌNG): đang xét TRONG LƯU NIÊN năm ${liunianYear}, KHÔNG luận chung chung cả đời. Năm ${liunianYear} nằm trong đại hạn hiện tại, hãy xét ĐỦ 3 TẦNG: sinh niên tứ hóa (nền, ở phần đầu dữ liệu), tứ hóa đại hạn, và tứ hóa lưu niên.${dxLine} Tứ hóa lưu niên ${liunianYear}: ${yearSihua}. Hãy luận TRỌNG TÂM vào RIÊNG năm ${liunianYear}: cát hung trong năm, thời điểm trong năm, việc nên và không nên làm; ưu tiên tác động tứ hóa lưu niên, đối chiếu với tứ hóa đại hạn và sinh niên. Nếu bố cục có mục 'đại hạn hiện tại', hãy THAY bằng mục luận riêng cho năm ${liunianYear}.`,
     };
   }
   return null;
