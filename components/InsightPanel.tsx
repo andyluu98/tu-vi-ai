@@ -50,14 +50,14 @@ function buildTierContext(
     const sihua = dxPalace ? sihuaOverlayToVn(buildSiHuaOverlay(dxPalace.stem)) : '';
     return {
       label: `Đại hạn ${dx.startAge}-${dx.endAge}`,
-      ctx: `\n\nBỐI CẢNH THỜI GIAN: luận cung này DƯỚI ĐẠI HẠN ${dx.startAge}-${dx.endAge} tuổi (đại hạn Mệnh tại cung ${hanVietPalace(dx.palaceName)}). Tứ hóa đại hạn: ${sihua}. Hãy cho biết trong 10 năm đại hạn này, cung đó cát hay hung, tứ hóa đại hạn tác động ra sao, và điều cần lưu ý.`,
+      ctx: `\n\nBỐI CẢNH THỜI GIAN (QUAN TRỌNG): đang xét DƯỚI ĐẠI HẠN ${dx.startAge}-${dx.endAge} tuổi (đại hạn Mệnh tại cung ${hanVietPalace(dx.palaceName)}), KHÔNG luận chung chung cả đời. Tứ hóa đại hạn: ${sihua}. Hãy luận TRỌNG TÂM vào vận 10 năm đại hạn này (cát hung, mốc then chốt, việc nên và không nên), kết hợp tứ hóa đại hạn. Nếu bố cục có mục về 'đại hạn hiện tại', hãy tập trung đúng đại hạn ${dx.startAge}-${dx.endAge} này.`,
     };
   }
   if (view === 'liunian') {
     const sihua = sihuaOverlayToVn(buildSiHuaOverlay(getYearStemIndex(liunianYear)));
     return {
       label: `Lưu niên ${liunianYear}`,
-      ctx: `\n\nBỐI CẢNH THỜI GIAN: luận cung này TRONG LƯU NIÊN năm ${liunianYear}. Tứ hóa lưu niên ${liunianYear}: ${sihua}. Hãy cho biết trong năm ${liunianYear}, cung đó cát hay hung, tứ hóa lưu niên tác động ra sao, và điều cần lưu ý.`,
+      ctx: `\n\nBỐI CẢNH THỜI GIAN (QUAN TRỌNG): đang xét TRONG LƯU NIÊN năm ${liunianYear}, KHÔNG luận chung chung cả đời hay cả đại hạn. Tứ hóa lưu niên ${liunianYear}: ${sihua}. Hãy luận TRỌNG TÂM vào RIÊNG năm ${liunianYear}: cát hung trong năm, thời điểm trong năm, việc nên và không nên làm năm ${liunianYear}, kết hợp tứ hóa lưu niên. Nếu bố cục có mục về 'đại hạn hiện tại', hãy THAY bằng mục luận riêng cho năm ${liunianYear}.`,
     };
   }
   return null;
@@ -413,8 +413,13 @@ Lời khuyên khả thi cụ thể dựa trên tứ hóa này.`;
   const handleTopicClick = (topicKey: string) => {
     if (loadingRef.current) return;
     setActiveTopic(topicKey);
-    const label = TOPICS.find(t => t.key === topicKey)?.label ?? 'Luận giải';
-    runLuan(label, TOPIC_PROMPTS[topicKey]);
+    const baseLabel = TOPICS.find(t => t.key === topicKey)?.label ?? 'Luận giải';
+    // Gắn tầng thời gian đang chọn (đại hạn / lưu niên) để luận đúng vận, không chung chung
+    const ly = liunianYear ?? new Date().getFullYear();
+    const tier = buildTierContext(chart, view, ly);
+    const prompt = tier ? TOPIC_PROMPTS[topicKey] + tier.ctx : TOPIC_PROMPTS[topicKey];
+    const label = tier ? `${baseLabel} · ${tier.label}` : baseLabel;
+    runLuan(label, prompt);
   };
 
   const handleSend = () => {
