@@ -84,6 +84,26 @@ function patternsToText(chart: ZiweiChart): string {
   return `\n\n## Cách cục nhận diện\n${lines.join('\n')}`;
 }
 
+// ─── 三方四正结构（命理骨架，让 AI 无需自行推地支）──────────────
+// Mỗi cung: bộ tam hợp (+4, +8 địa chi) + cung xung chiếu (+6). Ghi sẵn theo
+// TÊN cung để AI khỏi phải tự tính địa chi (dễ ghép nhầm). Sao đã liệt kê ở
+// mục "Mười hai cung" phía trên, đây chỉ là bản đồ liên kết cung.
+function sanFangToText(chart: ZiweiChart): string {
+  const byBranch = new Map<number, Palace>();
+  for (const p of chart.palaces) byBranch.set(p.branch, p);
+  const lines = chart.palaces.map(p => {
+    const opp = byBranch.get((p.branch + 6) % 12);
+    const t1 = byBranch.get((p.branch + 4) % 12);
+    const t2 = byBranch.get((p.branch + 8) % 12);
+    const trine = [t1, t2].filter(Boolean).map(q => hanVietPalace(q!.name)).join(', ');
+    const oppStr = opp ? hanVietPalace(opp.name) : '(không xác định)';
+    return `- ${hanVietPalace(p.name)}: tam hợp với ${trine}; xung chiếu (cung đối) ${oppStr}`;
+  });
+  return `\n\n## Tam phương tứ chính (bộ khung liên kết cung)
+(Khi luận BẤT KỲ cung nào, PHẢI gộp thêm sao ở hai cung tam hợp và cung xung chiếu theo bảng dưới, không chỉ nhìn sao nằm trong cung đó. Đây là gốc luận của Tử Vi.)
+${lines.join('\n')}`;
+}
+
 export function chartToText(chart: ZiweiChart): string {
   const b = chart.birthInfo;
   const gender = b.gender === 'male' ? 'Nam' : 'Nữ';
@@ -107,5 +127,5 @@ export function chartToText(chart: ZiweiChart): string {
     .map(palaceToText)
     .join('\n');
 
-  return `# Dữ liệu lá số\n${header}\n\n## Mười hai cung\n${palaces}${patternsToText(chart)}`;
+  return `# Dữ liệu lá số\n${header}\n\n## Mười hai cung\n${palaces}${sanFangToText(chart)}${patternsToText(chart)}`;
 }

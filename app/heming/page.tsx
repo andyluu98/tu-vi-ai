@@ -60,19 +60,30 @@ export default function HemingPage() {
   const [formA, setFormA] = useState<BirthFormState | null>(null);
   const [formB, setFormB] = useState<BirthFormState | null>(null);
 
-  // ─── AI 合盘分析状态 ─────────────────────────────────────
-  const [analysis, setAnalysis] = useState('');
+  // ─── AI 合盘分析状态（会话式：保留总论 + 记忆上下文）──────────
+  type Msg = { role: 'user' | 'assistant'; content: string };
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [streaming, setStreaming] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [question, setQuestion] = useState('');
+  const [relation, setRelation] = useState('tinhcam');
   const [analysisError, setAnalysisError] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const analysisRef = useRef<HTMLDivElement>(null);
+
+  const GENERAL_Q = 'Hãy phân tích tổng quan mức độ hợp lá số giữa hai người.';
+  const RELATIONS = [
+    { key: 'tinhcam', label: 'Tình cảm · Hôn nhân' },
+    { key: 'hoptac', label: 'Hợp tác làm ăn' },
+    { key: 'chacon', label: 'Cha mẹ · Con cái' },
+    { key: 'banbe', label: 'Bạn bè · Tri kỷ' },
+  ];
 
   // 表单是否填齐
   const isFormReady = (f: BirthFormState | null): boolean =>
     !!(f && f.year && f.month && f.day && f.gender && (f.unknownTime || (f.clockHour !== '' && f.clockMinute !== '')));
 
-  // ─── 统一入口：起盘 + 合盘分析 ─────────────────────────────
+  // ─── 统一入口：起盘 + 合盘分析（追加会话，不清空总论）──────────
   const runAnalysis = useCallback(async (q?: string) => {
     setFormError(null);
     if (!isFormReady(formA) || !isFormReady(formB)) {
@@ -80,8 +91,14 @@ export default function HemingPage() {
       return;
     }
     setAnalyzing(true);
-    setAnalysis('');
+    setStreaming('');
     setAnalysisError(false);
+    setQuestion('');
+
+    // Câu người dùng cho lượt này: có q là hỏi thêm, không thì là luận tổng quan.
+    const userText = (q && q.trim()) || GENERAL_Q;
+    const history: Msg[] = [...messages, { role: 'user', content: userText }];
+    setMessages(history);
 
     try {
       // Lập hai lá số (nếu chưa có); hàm sync, không cần gọi API
@@ -105,7 +122,7 @@ export default function HemingPage() {
       const res = await fetch('/api/heming', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chartA: cA, chartB: cB, question: q ?? undefined, aiConfig: aiConfigForRequest() }),
+        body: JSON.stringify({ chartA: cA, chartB: cB, messages: history, relation, aiConfig: aiConfigForRequest() }),
       });
       if (!res.ok || !res.body) throw new Error();
 
@@ -124,18 +141,20 @@ export default function HemingPage() {
           try {
             const delta = JSON.parse(data).delta?.text ?? '';
             text += delta;
-            setAnalysis(text);
+            setStreaming(text);
           } catch { /* skip */ }
         }
       }
-      // scroll to analysis
-      setTimeout(() => analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+      // Chốt lượt trả lời vào hội thoại, xóa vùng streaming tạm.
+      setMessages([...history, { role: 'assistant', content: text }]);
+      setStreaming('');
+      setTimeout(() => analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
     } catch {
       setAnalysisError(true);
     } finally {
       setAnalyzing(false);
     }
-  }, [chartA, chartB, formA, formB]);
+  }, [chartA, chartB, formA, formB, messages, relation]);
 
   const cardStyle = {
     background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.9)',
@@ -220,21 +239,43 @@ export default function HemingPage() {
           padding: '32px',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: (!analysis && !analyzing) ? 'center' : 'flex-start',
+          justifyContent: (messages.length === 0 && !analyzing) ? 'center' : 'flex-start',
         }}>
           {/* 区块标题 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: (analysis || analyzing) ? '20px' : '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: (messages.length > 0 || analyzing) ? '20px' : '24px' }}>
             <span style={{ color: 'var(--ac)', opacity: 0.6 }}>◉</span>
             <span style={{ fontSize: '11px', letterSpacing: '0.3em', color: 'var(--tx-3)' }}>Phân tích hợp lá số</span>
           </div>
 
-          {/* 状态分支 */}
-          {!analysis && !analyzing && (
-            <div style={{ textAlign: 'center', padding: '32px 0' }}>
-              <div style={{ fontSize: '13px', color: 'var(--tx-3)', marginBottom: '24px', lineHeight: 1.7 }}>
-                Điền đầy đủ thông tin sinh của hai người, rồi bấm nút bên dưới<br />
-                AI sẽ dựa trên hệ Nghê Hải Hạ phân tích sâu mức hợp duyên giữa hai người
+          {/* 状态分支 —— 起始态：选关系类型 + 起盘按钮 */}
+          {messages.length === 0 && !analyzing && (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <div style={{ fontSize: '13px', color: 'var(--tx-3)', marginBottom: '20px', lineHeight: 1.7 }}>
+                Điền đầy đủ thông tin sinh của hai người, chọn kiểu quan hệ, rồi bấm nút bên dưới
               </div>
+
+              {/* Chọn loại quan hệ */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '24px' }}>
+                {RELATIONS.map(r => {
+                  const active = relation === r.key;
+                  return (
+                    <button
+                      key={r.key}
+                      onClick={() => setRelation(r.key)}
+                      style={{
+                        fontSize: '12px', padding: '7px 16px', borderRadius: 'var(--r-pill)',
+                        border: `1px solid ${active ? 'var(--ac)' : 'var(--bdr-med)'}`,
+                        background: active ? 'rgba(200,128,32,0.12)' : 'transparent',
+                        color: active ? 'var(--ac)' : 'var(--tx-2)',
+                        fontWeight: active ? 600 : 400, cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <button
                 onClick={() => runAnalysis()}
                 style={{
@@ -258,18 +299,38 @@ export default function HemingPage() {
             </div>
           )}
 
-          {analyzing && !analysis && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px 0', color: 'var(--tx-3)', fontSize: '13px' }}>
-              <div style={{
-                width: '14px', height: '14px',
-                border: '2px solid var(--bdr-med)', borderTopColor: 'var(--ac)',
-                borderRadius: '50%', animation: 'spin 0.8s linear infinite',
-              }} />
-              Đang đối chiếu hai lá số…
+          {/* Chuỗi hội thoại: giữ đủ bài tổng + các lượt hỏi thêm */}
+          {messages.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              {messages.map((m, i) =>
+                m.role === 'user' ? (
+                  <div key={i} style={{
+                    alignSelf: 'flex-start', fontSize: '12px', padding: '6px 14px',
+                    borderRadius: 'var(--r-pill)', background: 'var(--bg-2)',
+                    color: 'var(--tx-2)', border: '1px solid var(--bdr)',
+                  }}>
+                    {m.content === GENERAL_Q ? '◆ Luận tổng quan mức hợp' : m.content}
+                  </div>
+                ) : (
+                  <AiContent key={i} text={m.content} />
+                ),
+              )}
+              {analyzing && (
+                streaming
+                  ? <AiContent text={streaming} streaming />
+                  : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', color: 'var(--tx-3)', fontSize: '13px' }}>
+                      <div style={{
+                        width: '14px', height: '14px',
+                        border: '2px solid var(--bdr-med)', borderTopColor: 'var(--ac)',
+                        borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+                      }} />
+                      Đang đối chiếu hai lá số…
+                    </div>
+                  )
+              )}
             </div>
           )}
-
-          {analysis && <AiContent text={analysis} streaming={analyzing} />}
 
           {analysisError && (
             <div style={{ padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--bdr)', background: 'var(--bg-card)', fontSize: '13px', color: 'var(--tx-2)', marginTop: '12px' }}>
@@ -279,7 +340,7 @@ export default function HemingPage() {
         </div>
 
         {/* ═══ 针对合盘的追问聊天框（仅分析完成后显示）═══════════ */}
-        {analysis && (
+        {messages.some(m => m.role === 'assistant') && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
             <div style={{ fontSize: '11px', letterSpacing: '0.2em', color: 'var(--tx-3)', marginBottom: '4px' }}>
               Hỏi thêm về lần hợp lá số này

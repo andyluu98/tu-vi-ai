@@ -52,12 +52,16 @@ export async function POST(req: NextRequest) {
   let chartA: ZiweiChart;
   let chartB: ZiweiChart;
   let question: string | undefined;
+  let relation: string | undefined;
+  let messages: { role: 'user' | 'assistant'; content: string }[] = [];
   let aiConfig: { baseUrl?: string; model?: string; apiKey?: string } | undefined;
   try {
     const body = await req.json();
     chartA = body.chartA;
     chartB = body.chartB;
     question = body.question;
+    relation = body.relation;
+    messages = Array.isArray(body.messages) ? body.messages : [];
     aiConfig = body.aiConfig;
   } catch {
     return textStream('Yêu cầu không hợp lệ, vui lòng lập lại lá số rồi thử lại.');
@@ -77,12 +81,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const context = `${SYSTEM_PROMPT}\n\n## Người A\n${chartToText(chartA)}\n\n## Người B\n${chartToText(chartB)}${buildClassicsContext(chartA)}${buildClassicsContext(chartB)}`;
-  const userQuestion = question?.trim() || 'Hãy phân tích tổng quan mức độ hợp lá số giữa Người A và Người B.';
+  // Loại quan hệ (do người dùng chọn) quyết định trọng tâm luận.
+  const RELATION_HINT: Record<string, string> = {
+    tinhcam: 'Loại quan hệ cần xét: TÌNH CẢM / HÔN NHÂN. Trọng tâm cung Phu Thê, Mệnh, Phúc Đức của hai bên.',
+    hoptac: 'Loại quan hệ cần xét: HỢP TÁC LÀM ĂN / ĐỐI TÁC. Trọng tâm cung Mệnh, Quan Lộc, Tài Bạch, Nô Bộc (bạn bè cộng sự) của hai bên; xét tin cậy, phân vai, tài lộc chung.',
+    chacon: 'Loại quan hệ cần xét: CHA MẸ - CON CÁI. Trọng tâm cung Phụ Mẫu, Tử Nữ, Mệnh của hai bên; xét duyên nợ, cách nuôi dạy, xung hợp thế hệ.',
+    banbe: 'Loại quan hệ cần xét: BẠN BÈ / TRI KỶ. Trọng tâm cung Nô Bộc, Mệnh, Phúc Đức của hai bên; xét độ ăn ý, giúp đỡ hay khắc khẩu.',
+  };
+  const relationLine = relation && RELATION_HINT[relation] ? `\n\n${RELATION_HINT[relation]}` : '';
+
+  const context = `${SYSTEM_PROMPT}${relationLine}\n\n## Người A\n${chartToText(chartA)}\n\n## Người B\n${chartToText(chartB)}${buildClassicsContext(chartA)}${buildClassicsContext(chartB)}`;
+
+  // Ưu tiên lịch sử hội thoại (để hỏi thêm không mất mạch); fallback về 1 câu hỏi.
+  const convo = messages.length
+    ? messages.map(m => ({ role: m.role, content: m.content }))
+    : [{ role: 'user', content: question?.trim() || 'Hãy phân tích tổng quan mức độ hợp lá số giữa Người A và Người B.' }];
 
   const upstreamMessages = [
     { role: 'system', content: context },
-    { role: 'user', content: userQuestion },
+    ...convo,
   ];
 
   let upstream: globalThis.Response;
