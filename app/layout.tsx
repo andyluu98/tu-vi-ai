@@ -5,7 +5,7 @@ import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
 // Domain chính; đổi qua env NEXT_PUBLIC_SITE_URL khi gắn tên miền riêng (vd https://tuvi.aithetech.com)
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://tuviai-app.vercel.app';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://tuvi.aithetech.com';
 const SITE_TITLE = 'Lá số Tử Vi · Tử Vi Đẩu Số hệ Nghê Hải Hạ';
 const SITE_DESC = 'Lập lá số Tử Vi Đẩu Số theo hệ Nghê Hải Hạ, AI luận sâu cách cục, đại hạn lưu niên, tình cảm sự nghiệp tài lộc sức khỏe.';
 
