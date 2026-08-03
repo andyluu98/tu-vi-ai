@@ -4,21 +4,31 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
+// Domain chính; đổi qua env NEXT_PUBLIC_SITE_URL khi gắn tên miền riêng (vd https://tuvi.aithetech.com)
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://tuviai-app.vercel.app';
+const SITE_TITLE = 'Lá số Tử Vi · Tử Vi Đẩu Số hệ Nghê Hải Hạ';
+const SITE_DESC = 'Lập lá số Tử Vi Đẩu Số theo hệ Nghê Hải Hạ, AI luận sâu cách cục, đại hạn lưu niên, tình cảm sự nghiệp tài lộc sức khỏe.';
+
 export const metadata: Metadata = {
-  title: 'Lá số Tử Vi · Tử Vi Đẩu Số hệ Nghê Hải Hạ',
-  description: 'Lập lá số Tử Vi Đẩu Số theo hệ Nghê Hải Hạ, AI luận sâu cách cục, đại hạn lưu niên, tình cảm sự nghiệp tài lộc sức khỏe.',
+  title: SITE_TITLE,
+  description: SITE_DESC,
   keywords: 'Tử Vi Đẩu Số, Nghê Hải Hạ, lá số, tử vi, an sao, tứ hóa, 14 chính tinh, 12 cung',
-  metadataBase: new URL('https://wdyziweidoushu666.com'),
+  metadataBase: new URL(SITE_URL),
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'Lá số Tử Vi · Tử Vi Đẩu Số hệ Nghê Hải Hạ',
-    description: 'Lập lá số Tử Vi Đẩu Số theo hệ Nghê Hải Hạ, AI luận sâu cách cục, đại hạn lưu niên, tình cảm sự nghiệp tài lộc sức khỏe.',
-    url: 'https://wdyziweidoushu666.com',
+    title: SITE_TITLE,
+    description: SITE_DESC,
+    url: SITE_URL,
     siteName: 'Tử Vi Đẩu Số',
     locale: 'vi_VN',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_TITLE,
+    description: SITE_DESC,
   },
   // 站长平台验证（拿到 verification code 后填入对应字段，重新部署即可）
   verification: {
