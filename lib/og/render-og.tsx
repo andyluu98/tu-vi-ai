@@ -20,7 +20,6 @@ const LABEL = 'TỬ VI ĐẤU SỐ · HỆ PHÁI NGHÊ HẢI HẠ';
 const TITLE = 'Lá Số Tử Vi';
 const SUBTITLE = 'Tử Vi là cửa · Thiên Địa Nhân là đường · Nghê Hải Hạ là thầy';
 const TAGLINE = 'Lập lá số tức thì · AI luận sâu cách cục, đại hạn, lưu niên';
-const FOOTER = 'Miễn phí · tuviai-app.vercel.app';
 
 // ─── Nạp font subset từ Google Fonts theo text ──────────────────
 async function loadGoogleFont(family: string, weight: number, text: string): Promise<ArrayBuffer | null> {
@@ -38,7 +37,7 @@ async function loadGoogleFont(family: string, weight: number, text: string): Pro
 }
 
 export async function renderOgImage(): Promise<ImageResponse> {
-  const bodyText = LABEL + SUBTITLE + TAGLINE + FOOTER;
+  const bodyText = LABEL + SUBTITLE + TAGLINE;
   const [titleFont, bodyFont] = await Promise.all([
     loadGoogleFont('Playfair Display', 700, TITLE),
     loadGoogleFont('Be Vietnam Pro', 600, bodyText),
@@ -137,25 +136,6 @@ export async function renderOgImage(): Promise<ImageResponse> {
           }}
         >
           {TAGLINE}
-        </div>
-
-        {/* Chip domain */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            marginTop: '42px',
-            padding: '11px 28px',
-            borderRadius: '999px',
-            border: '1px solid rgba(176,132,46,0.45)',
-            backgroundColor: 'rgba(208,162,58,0.12)',
-            color: '#8a5a12',
-            fontSize: '24px',
-            fontWeight: 600,
-            letterSpacing: '1px',
-          }}
-        >
-          {FOOTER}
         </div>
       </div>
     ),
