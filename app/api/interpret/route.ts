@@ -11,14 +11,13 @@ import type { NextRequest } from 'next/server';
 import { chartToText } from '@/lib/ziwei/chart-to-text';
 import { buildClassicsContext } from '@/lib/ziwei/classics-rag';
 import type { ZiweiChart } from '@/lib/ziwei/types';
+import { checkRateLimit, getMaxTokens, resolveUpstream, sanitizeMessages } from '@/lib/ai/safe-upstream';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // ─── LLM 配置（OpenAI 兼容）──────────────────────────────────────
-const BASE_URL = process.env.AI_BASE_URL || 'https://api.deepseek.com/v1';
-const API_KEY = process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY || '';
-const MODEL = process.env.AI_MODEL || 'deepseek-v4-pro';
+// baseUrl / apiKey / model được chốt trong lib/ai/safe-upstream.ts (allowlist + khóa server không bao giờ gửi tới URL do client chọn).
 
 const SYSTEM_PROMPT = `Bạn là một thầy Tử Vi Đẩu Số dày dạn, tinh thông hệ thống "Thiên Kỷ" của Nghê Hải Hạ (Ni Haixia).
 
@@ -51,29 +50,30 @@ function textStream(text: string): Response {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(req);
+  if (!rl.ok) {
+    const res = textStream('Bạn gửi yêu cầu quá nhanh. Vui lòng thử lại sau ít phút.');
+    res.headers.set('Retry-After', String(rl.retryAfterSec));
+    return res;
+  }
+
   let chart: ZiweiChart;
   let messages: { role: 'user' | 'assistant'; content: string }[];
   let aiConfig: { baseUrl?: string; model?: string; apiKey?: string } | undefined;
   try {
     const body = await req.json();
     chart = body.chart;
-    messages = body.messages ?? [];
+    messages = sanitizeMessages(body.messages);
     aiConfig = body.aiConfig;
   } catch {
     return textStream('Yêu cầu không hợp lệ, vui lòng tạo lại lá số rồi thử lại.');
   }
   if (!chart?.palaces?.length) return textStream('Thiếu dữ liệu lá số, hãy lập lá số trước.');
 
-  // Ưu tiên cấu hình từ trình duyệt (nút ⚙️); fallback về .env.local
-  const baseUrl = aiConfig?.baseUrl?.trim() || BASE_URL;
-  const apiKey = aiConfig?.apiKey?.trim() || API_KEY;
-  const model = aiConfig?.model?.trim() || MODEL;
-
-  if (!apiKey) {
-    return textStream(
-      '⚠️ Chưa cấu hình khóa AI. Bấm nút ⚙️ ở đầu trang để chọn nhà cung cấp, model và nhập API key (hoặc điền AI_API_KEY trong .env.local rồi khởi động lại dev server).',
-    );
-  }
+  // Cấu hình từ trình duyệt (nút ⚙️) chỉ được tin cậy một phần: xem resolveUpstream().
+  const resolved = resolveUpstream(aiConfig);
+  if (!resolved.ok) return textStream(resolved.error);
+  const { baseUrl, apiKey, model } = resolved.value;
 
   const upstreamMessages = [
     { role: 'system', content: `${SYSTEM_PROMPT}\n\n${chartToText(chart)}${buildClassicsContext(chart)}` },
@@ -85,7 +85,8 @@ export async function POST(req: NextRequest) {
     upstream = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, messages: upstreamMessages, stream: true, temperature: 0.7, max_tokens: Number(process.env.AI_MAX_TOKENS) || 32768 }),
+      redirect: 'error',
+      body: JSON.stringify({ model, messages: upstreamMessages, stream: true, temperature: 0.7, max_tokens: getMaxTokens() }),
     });
   } catch (e) {
     return textStream(`Gọi mô hình thất bại (lỗi mạng): ${(e as Error).message}`);
